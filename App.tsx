@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import * as XLSX from 'xlsx';
+// @ts-ignore
+import XLSX from 'xlsx-js-style';
 import Header from './components/Header';
 import EntryForm from './components/EntryForm';
 import EntryList from './components/EntryList';
@@ -111,53 +112,137 @@ function App() {
     }
 
     try {
-      // 1. Prepare data for Excel: Flatten structure so each Ad Group is a row
-      const exportData = entries.flatMap(e => {
-        // Handle entries with no ad groups
+      // 1. Define the exact columns based on the user's template
+      const headers = [
+        '游戏名称', 
+        '游戏类型', 
+        '试玩时长', 
+        '游戏时间/节点', 
+        '广告类型', 
+        '广告位置', 
+        '出现频率', 
+        '出现次数', 
+        '广告一', 
+        '时长',    // For Ad 1 Duration
+        '广告二', 
+        '时长',    // For Ad 2 Duration
+        '触发条件', 
+        '试玩反馈'
+      ];
+
+      // 2. Build the data array (Array of Arrays)
+      const dataRows: any[][] = [];
+
+      entries.forEach(e => {
+        // If no ad groups, create a row with basic info
         if (!e.adGroups || e.adGroups.length === 0) {
-          return [{
-            '记录日期': e.date,
-            '游戏名称': e.gameName,
-            '游戏类型': e.genre,
-            '试玩时长': e.duration || '',
-            '广告模块': '',
-            '游戏时间/节点': '',
-            '试玩反馈': e.notes
-          }];
+          dataRows.push([
+            e.gameName,
+            e.genre,
+            e.duration || '',
+            '', // No game time
+            '', '', '', '', '', '', '', '', '', // Empty ad fields
+            e.notes
+          ]);
+          return;
         }
 
-        // Map each ad group to a separate row
-        return e.adGroups.map((g, index) => {
-          const isFirst = index === 0;
+        // Create a row for each ad group
+        e.adGroups.forEach((g, index) => {
+          // Extract specific attributes by key
+          const getAttr = (key: string) => g.attributes.find(a => a.key === key)?.value || '';
           
-          const row: Record<string, string> = {
-            '记录日期': isFirst ? e.date : '',
-            '游戏名称': isFirst ? e.gameName : '',
-            '游戏类型': isFirst ? e.genre : '',
-            '试玩时长': isFirst ? (e.duration || '') : '',
-            '广告模块': g.name || '',
-            '游戏时间/节点': g.gameTime || '',
-          };
-
-          g.attributes.forEach(attr => {
-            if (attr.key && attr.key.trim()) {
-              row[attr.key] = attr.value;
-            }
-          });
-
-          row['试玩反馈'] = isFirst ? e.notes : '';
-
-          return row;
+          const row = [
+            index === 0 ? e.gameName : '', // Merge simulation: only show game info on first row
+            index === 0 ? e.genre : '',
+            index === 0 ? (e.duration || '') : '',
+            g.gameTime || '',
+            getAttr('广告类型'),
+            getAttr('广告位置'),
+            getAttr('出现频率'),
+            getAttr('出现次数'),
+            getAttr('广告一'),
+            getAttr('时长'),      // Duration for Ad 1
+            getAttr('广告二'),
+            getAttr('时长二'),    // Duration for Ad 2 (mapped to "时长" column header)
+            getAttr('触发条件'),
+            index === 0 ? e.notes : ''
+          ];
+          
+          dataRows.push(row);
         });
       });
 
-      const ws = XLSX.utils.json_to_sheet(exportData);
+      // 3. Create Worksheet
+      const wsData = [headers, ...dataRows];
+      const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+      // 4. Apply Styles
+      // Define styles
+      const headerStyle = {
+        font: { name: 'SimSun', sz: 12, bold: true }, // 宋体, 12, 加粗
+        alignment: { horizontal: 'center', vertical: 'center' },
+        border: {
+          top: { style: 'thin' },
+          bottom: { style: 'thin' },
+          left: { style: 'thin' },
+          right: { style: 'thin' }
+        }
+      };
+
+      const contentStyle = {
+        font: { name: 'SimSun', sz: 10, bold: false }, // 宋体, 10, 不加粗
+        alignment: { vertical: 'center', wrapText: true },
+        border: {
+          top: { style: 'thin' },
+          bottom: { style: 'thin' },
+          left: { style: 'thin' },
+          right: { style: 'thin' }
+        }
+      };
+
+      // Apply to all cells
+      const range = XLSX.utils.decode_range(ws['!ref']);
+      for (let R = range.s.r; R <= range.e.r; ++R) {
+        for (let C = range.s.c; C <= range.e.c; ++C) {
+          const cell_address = XLSX.utils.encode_cell({ r: R, c: C });
+          if (!ws[cell_address]) continue;
+
+          if (R === 0) {
+            // Header Row
+            ws[cell_address].s = headerStyle;
+          } else {
+            // Content Rows
+            ws[cell_address].s = contentStyle;
+          }
+        }
+      }
+
+      // 5. Set Column Widths
+      ws['!cols'] = [
+        { wpx: 120 }, // 游戏名称
+        { wpx: 80 },  // 游戏类型
+        { wpx: 80 },  // 试玩时长
+        { wpx: 120 }, // 游戏时间/节点
+        { wpx: 150 }, // 广告类型
+        { wpx: 100 }, // 广告位置
+        { wpx: 60 },  // 出现频率
+        { wpx: 60 },  // 出现次数
+        { wpx: 150 }, // 广告一
+        { wpx: 50 },  // 时长1
+        { wpx: 150 }, // 广告二
+        { wpx: 50 },  // 时长2
+        { wpx: 150 }, // 触发条件
+        { wpx: 200 }  // 试玩反馈
+      ];
+
+      // 6. Write File
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "广告测评数据");
       XLSX.writeFile(wb, `游戏广告测评表_${new Date().toISOString().slice(0, 10)}.xlsx`);
     } catch (error) {
       console.error("Export failed", error);
-      alert('导出失败，请确保网络正常以加载导出组件。');
+      alert('导出失败，请检查数据完整性。');
     }
   };
 
