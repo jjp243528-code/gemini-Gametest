@@ -202,18 +202,20 @@ function App() {
       };
 
       // Apply to all cells
-      const range = XLSX.utils.decode_range(ws['!ref']);
-      for (let R = range.s.r; R <= range.e.r; ++R) {
-        for (let C = range.s.c; C <= range.e.c; ++C) {
-          const cell_address = XLSX.utils.encode_cell({ r: R, c: C });
-          if (!ws[cell_address]) continue;
+      if (ws['!ref']) {
+        const range = XLSX.utils.decode_range(ws['!ref']);
+        for (let R = range.s.r; R <= range.e.r; ++R) {
+          for (let C = range.s.c; C <= range.e.c; ++C) {
+            const cell_address = XLSX.utils.encode_cell({ r: R, c: C });
+            if (!ws[cell_address]) continue;
 
-          if (R === 0) {
-            // Header Row
-            ws[cell_address].s = headerStyle;
-          } else {
-            // Content Rows
-            ws[cell_address].s = contentStyle;
+            if (R === 0) {
+              // Header Row
+              ws[cell_address].s = headerStyle;
+            } else {
+              // Content Rows
+              ws[cell_address].s = contentStyle;
+            }
           }
         }
       }
