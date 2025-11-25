@@ -1,0 +1,23 @@
+{
+  "name": "海外小游戏广告测评助手",
+  "short_name": "广告测评",
+  "description": "一款专为游戏测试员设计的React应用，用于记录海外小游戏试玩数据、分类游戏类型、追踪广告策略，支持一键导出Excel。",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f3f4f6",
+  "theme_color": "#2563eb",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/2991/2991148.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/2991/2991148.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
