@@ -126,7 +126,8 @@ function App() {
         '时长',    // For Ad 1 Duration
         '广告二', 
         '时长',    // For Ad 2 Duration
-        '触发条件', 
+        '触发关卡', // New
+        '触发事件', // New
         '试玩反馈'
       ];
 
@@ -141,7 +142,7 @@ function App() {
             e.genre,
             e.duration || '',
             '', // No game time
-            '', '', '', '', '', '', '', '', '', // Empty ad fields
+            '', '', '', '', '', '', '', '', '', '', // Empty ad fields
             e.notes
           ]);
           return;
@@ -165,7 +166,8 @@ function App() {
             getAttr('时长'),      // Duration for Ad 1
             getAttr('广告二'),
             getAttr('时长二'),    // Duration for Ad 2 (mapped to "时长" column header)
-            getAttr('触发条件'),
+            getAttr('触发关卡'),
+            getAttr('触发事件'),
             index === 0 ? e.notes : ''
           ];
           
@@ -234,7 +236,8 @@ function App() {
         { wpx: 50 },  // 时长1
         { wpx: 150 }, // 广告二
         { wpx: 50 },  // 时长2
-        { wpx: 150 }, // 触发条件
+        { wpx: 100 }, // 触发关卡
+        { wpx: 120 }, // 触发事件
         { wpx: 200 }  // 试玩反馈
       ];
 

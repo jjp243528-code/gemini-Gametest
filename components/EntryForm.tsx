@@ -15,21 +15,24 @@ const AD_FREQUENCY_OPTIONS = ["极高", "高", "中", "低"];
 const AD_COUNT_OPTIONS = ["1次", "2次", "3次", "5次", "10次", "无限/循环", "每关1次", "每日限制"];
 const AD_CONTENT_OPTIONS: string[] = []; 
 const AD_DURATION_OPTIONS = ["5秒", "15秒", "30秒", "45秒", "60秒", "大于60秒"];
-const AD_TRIGGER_OPTIONS = ["主动点击", "被动弹出", "通关失败", "通关成功", "资源不足", "时间间隔"];
+const AD_TRIGGER_LEVEL_OPTIONS = ["主界面", "第1关", "第2关", "第3关", "第5关", "第10关", "结算页", "商店", "新手引导"];
+const AD_TRIGGER_EVENT_OPTIONS = ["被动弹出", "通关失败", "通关成功"];
 
 // Updated options for Game Time input
 const GAME_TIME_OPTIONS = ["0-10分钟，新手引导", "10-30分钟", "30-60分钟", "60分钟后"];
 
 const DEFAULT_ATTRIBUTES = [
-  { key: '广告类型', value: '' },
   { key: '广告位置', value: '' },
   { key: '出现频率', value: '' },
   { key: '出现次数', value: '' },
   { key: '广告一', value: '' },
+  { key: '广告类型一', value: '' },
   { key: '时长', value: '' },
   { key: '广告二', value: '' },
+  { key: '广告类型二', value: '' },
   { key: '时长二', value: '' },
-  { key: '触发条件', value: '' }
+  { key: '触发关卡', value: '' },
+  { key: '触发事件', value: '' }
 ];
 
 // Safe ID generator that works in non-secure contexts too
@@ -89,16 +92,52 @@ const EntryForm: React.FC<EntryFormProps> = ({ onAddEntry, initialData, onClearI
     if (!value || !value.trim()) return;
     const cleanValue = value.trim();
     
-    const existing = customAttributes[key] || [];
-    if (existing.includes(cleanValue)) return;
+    // Check for shared pool between 广告一 and 广告二
+    if (key === '广告一' || key === '广告二') {
+        const ad1List = customAttributes['广告一'] || [];
+        const ad2List = customAttributes['广告二'] || [];
+        if (ad1List.includes(cleanValue) || ad2List.includes(cleanValue)) return;
+    } 
+    // Check for shared pool between 广告类型一 and 广告类型二
+    else if (key === '广告类型一' || key === '广告类型二') {
+        const adType1List = customAttributes['广告类型一'] || [];
+        const adType2List = customAttributes['广告类型二'] || [];
+        if (adType1List.includes(cleanValue) || adType2List.includes(cleanValue)) return;
+    }
+    else {
+        const existing = customAttributes[key] || [];
+        if (existing.includes(cleanValue)) return;
+    }
     
+    const existing = customAttributes[key] || [];
     const updated = { ...customAttributes, [key]: [...existing, cleanValue] };
     onUpdateCustomAttributes(updated);
   };
 
   const deleteCustomOption = (key: string, value: string) => {
-    const existing = customAttributes[key] || [];
-    const updated = { ...customAttributes, [key]: existing.filter(v => v !== value) };
+    let updated = { ...customAttributes };
+
+    // Shared pool delete for 广告一 and 广告二
+    if (key === '广告一' || key === '广告二') {
+        const ad1List = updated['广告一'] || [];
+        const ad2List = updated['广告二'] || [];
+        
+        updated['广告一'] = ad1List.filter(v => v !== value);
+        updated['广告二'] = ad2List.filter(v => v !== value);
+    } 
+    // Shared pool delete for 广告类型一 and 广告类型二
+    else if (key === '广告类型一' || key === '广告类型二') {
+        const adType1List = updated['广告类型一'] || [];
+        const adType2List = updated['广告类型二'] || [];
+        
+        updated['广告类型一'] = adType1List.filter(v => v !== value);
+        updated['广告类型二'] = adType2List.filter(v => v !== value);
+    }
+    else {
+        const existing = updated[key] || [];
+        updated[key] = existing.filter(v => v !== value);
+    }
+    
     onUpdateCustomAttributes(updated);
   };
   
@@ -567,6 +606,8 @@ const EntryForm: React.FC<EntryFormProps> = ({ onAddEntry, initialData, onClearI
               <div className="space-y-2 pl-8">
                 {group.attributes.map((attr, attrIndex) => {
                   const isAdType = attr.key === '广告类型';
+                  const isAdType1 = attr.key === '广告类型一';
+                  const isAdType2 = attr.key === '广告类型二';
                   const isAdPosition = attr.key === '广告位置';
                   const isAdFrequency = attr.key === '出现频率';
                   const isAdCount = attr.key === '出现次数';
@@ -575,21 +616,44 @@ const EntryForm: React.FC<EntryFormProps> = ({ onAddEntry, initialData, onClearI
                   const isAd2 = attr.key === '广告二';
                   const isAdDuration = attr.key === '时长';
                   const isAdDuration2 = attr.key === '时长二';
-                  const isAdTrigger = attr.key === '触发条件';
+                  const isAdTriggerLevel = attr.key === '触发关卡';
+                  const isAdTriggerEvent = attr.key === '触发事件';
                   
                   // Use generic dropdown logic for everything except '出现次数'
                   // Added isAd1 and isAd2 to support custom templates dropdowns
-                  const isDropdownField = !isAdCount && (isAdType || isAdPosition || isAdFrequency || isAdContent || isAdTrigger || isAdDuration || isAdDuration2 || isAd1 || isAd2 || (!!attr.key && customAttributes.hasOwnProperty(attr.key)));
+                  const isDropdownField = !isAdCount && (
+                      isAdType || isAdType1 || isAdType2 ||
+                      isAdPosition || isAdFrequency || isAdContent || 
+                      isAdTriggerLevel || isAdTriggerEvent || 
+                      isAdDuration || isAdDuration2 || isAd1 || isAd2 || 
+                      (!!attr.key && customAttributes.hasOwnProperty(attr.key))
+                  );
                   
                   let fieldOptions: string[] = [];
-                  if (isAdType) fieldOptions = AD_TYPE_OPTIONS;
+                  if (isAdType || isAdType1 || isAdType2) fieldOptions = AD_TYPE_OPTIONS;
                   if (isAdPosition) fieldOptions = AD_POSITION_OPTIONS;
                   if (isAdFrequency) fieldOptions = AD_FREQUENCY_OPTIONS;
                   if (isAdContent) fieldOptions = AD_CONTENT_OPTIONS;
                   if (isAdDuration || isAdDuration2) fieldOptions = AD_DURATION_OPTIONS;
-                  if (isAdTrigger) fieldOptions = AD_TRIGGER_OPTIONS;
+                  if (isAdTriggerLevel) fieldOptions = AD_TRIGGER_LEVEL_OPTIONS;
+                  if (isAdTriggerEvent) fieldOptions = AD_TRIGGER_EVENT_OPTIONS;
 
-                  const userOptions = customAttributes[attr.key] || [];
+                  let userOptions = customAttributes[attr.key] || [];
+
+                  // MERGE LOGIC: Make Ad1 and Ad2 share options
+                  if (isAd1 || isAd2) {
+                    const ad1Opts = customAttributes['广告一'] || [];
+                    const ad2Opts = customAttributes['广告二'] || [];
+                    userOptions = Array.from(new Set([...ad1Opts, ...ad2Opts]));
+                  }
+
+                  // MERGE LOGIC: Make AdType1 and AdType2 share options
+                  if (isAdType1 || isAdType2) {
+                    const adType1Opts = customAttributes['广告类型一'] || [];
+                    const adType2Opts = customAttributes['广告类型二'] || [];
+                    userOptions = Array.from(new Set([...adType1Opts, ...adType2Opts]));
+                  }
+
                   const allOptions = [...fieldOptions, ...userOptions];
                   const isCustomValue = userOptions.includes(attr.value);
                   const showDropdown = isDropdownField && (attr.value === '' || allOptions.includes(attr.value));
