@@ -28,10 +28,3 @@ export interface GameEntry {
 
 // Type for storing user-defined attribute templates
 export type CustomAttributeMap = Record<string, string[]>;
-
-// Augment window to include XLSX from CDN
-declare global {
-  interface Window {
-    XLSX: any;
-  }
-}

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import * as XLSX from 'xlsx';
 import Header from './components/Header';
 import EntryForm from './components/EntryForm';
 import EntryList from './components/EntryList';
@@ -150,10 +151,10 @@ function App() {
         });
       });
 
-      const ws = window.XLSX.utils.json_to_sheet(exportData);
-      const wb = window.XLSX.utils.book_new();
-      window.XLSX.utils.book_append_sheet(wb, ws, "广告测评数据");
-      window.XLSX.writeFile(wb, `游戏广告测评表_${new Date().toISOString().slice(0, 10)}.xlsx`);
+      const ws = XLSX.utils.json_to_sheet(exportData);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "广告测评数据");
+      XLSX.writeFile(wb, `游戏广告测评表_${new Date().toISOString().slice(0, 10)}.xlsx`);
     } catch (error) {
       console.error("Export failed", error);
       alert('导出失败，请确保网络正常以加载导出组件。');
