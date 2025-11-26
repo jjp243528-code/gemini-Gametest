@@ -139,22 +139,23 @@ function App() {
     }
 
     try {
-      // 1. Define the exact columns based on the user's template
+      // 1. Define the exact columns based on the user's template (EntryForm defaults)
       const headers = [
         '游戏名称', 
         '游戏类型', 
         '试玩时长', 
         '游戏时间/节点', 
-        '广告类型', 
         '广告位置', 
         '出现频率', 
         '出现次数', 
         '广告一', 
-        '时长',    // For Ad 1 Duration
+        '广告类型一', 
+        '广告一时长', 
         '广告二', 
-        '时长',    // For Ad 2 Duration
-        '触发关卡', // New
-        '触发事件', // New
+        '广告类型二', 
+        '广告二时长', 
+        '触发关卡', 
+        '触发事件', 
         '试玩反馈'
       ];
 
@@ -169,7 +170,7 @@ function App() {
             e.genre,
             e.duration || '',
             '', // No game time
-            '', '', '', '', '', '', '', '', '', '', // Empty ad fields
+            '', '', '', '', '', '', '', '', '', '', '', // Empty ad fields
             e.notes
           ]);
           return;
@@ -177,7 +178,7 @@ function App() {
 
         // Create a row for each ad group
         e.adGroups.forEach((g, index) => {
-          // Extract specific attributes by key
+          // Extract specific attributes by key (using strict key matching)
           const getAttr = (key: string) => g.attributes.find(a => a.key === key)?.value || '';
           
           const row = [
@@ -185,14 +186,15 @@ function App() {
             index === 0 ? e.genre : '',
             index === 0 ? (e.duration || '') : '',
             g.gameTime || '',
-            getAttr('广告类型'),
             getAttr('广告位置'),
             getAttr('出现频率'),
             getAttr('出现次数'),
             getAttr('广告一'),
-            getAttr('时长'),      // Duration for Ad 1
+            getAttr('广告类型一'),
+            getAttr('时长'),      // Default key for Ad 1 Duration
             getAttr('广告二'),
-            getAttr('时长二'),    // Duration for Ad 2 (mapped to "时长" column header)
+            getAttr('广告类型二'),
+            getAttr('时长二'),    // Default key for Ad 2 Duration
             getAttr('触发关卡'),
             getAttr('触发事件'),
             index === 0 ? e.notes : ''
@@ -209,7 +211,8 @@ function App() {
       // 4. Apply Styles
       // Define styles
       const headerStyle = {
-        font: { name: 'SimSun', sz: 12, bold: true }, // 宋体, 12, 加粗
+        font: { name: 'SimSun', sz: 11, bold: true, color: { rgb: "FFFFFF" } }, 
+        fill: { fgColor: { rgb: "4472C4" } }, // Blue header
         alignment: { horizontal: 'center', vertical: 'center' },
         border: {
           top: { style: 'thin' },
@@ -220,7 +223,7 @@ function App() {
       };
 
       const contentStyle = {
-        font: { name: 'SimSun', sz: 10, bold: false }, // 宋体, 10, 不加粗
+        font: { name: 'SimSun', sz: 10, bold: false },
         alignment: { vertical: 'center', wrapText: true },
         border: {
           top: { style: 'thin' },
@@ -255,14 +258,15 @@ function App() {
         { wpx: 80 },  // 游戏类型
         { wpx: 80 },  // 试玩时长
         { wpx: 120 }, // 游戏时间/节点
-        { wpx: 150 }, // 广告类型
         { wpx: 100 }, // 广告位置
         { wpx: 60 },  // 出现频率
         { wpx: 60 },  // 出现次数
         { wpx: 150 }, // 广告一
-        { wpx: 50 },  // 时长1
+        { wpx: 100 }, // 广告类型一
+        { wpx: 80 },  // 广告一时长
         { wpx: 150 }, // 广告二
-        { wpx: 50 },  // 时长2
+        { wpx: 100 }, // 广告类型二
+        { wpx: 80 },  // 广告二时长
         { wpx: 100 }, // 触发关卡
         { wpx: 120 }, // 触发事件
         { wpx: 200 }  // 试玩反馈
@@ -285,7 +289,7 @@ function App() {
   const isAllSelected = entries.length > 0 && selectedIds.length === entries.length;
 
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col relative">
+    <div className="h-screen bg-gray-100 flex flex-col overflow-hidden">
       <Header 
         entryCount={entries.length} 
         onExport={handleExport} 
@@ -295,12 +299,12 @@ function App() {
         selectedCount={selectedIds.length}
       />
       
-      <main className="flex-grow container mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+      <main className="flex-grow container mx-auto px-4 sm:px-6 lg:px-8 py-4 lg:py-8 overflow-y-auto lg:overflow-hidden min-h-0">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 h-auto lg:h-full">
           
           {/* Left Column: Form */}
-          <div className="lg:col-span-5 xl:col-span-4 space-y-6">
-             <div className="sticky top-24">
+          <div className="lg:col-span-5 xl:col-span-4 lg:h-full lg:overflow-y-auto lg:pr-2 custom-scrollbar">
+             <div className="space-y-6 pb-6">
                 <EntryForm 
                   onAddEntry={handleAddEntry} 
                   initialData={formInitialData}
@@ -309,7 +313,7 @@ function App() {
                   onUpdateCustomAttributes={handleUpdateCustomAttributes}
                 />
                 
-                <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                   <h4 className="text-sm font-semibold text-blue-800 mb-2">岗位职责提示</h4>
                   <ul className="text-xs text-blue-700 space-y-1 list-disc pl-4">
                     <li>下载并试玩指定的海外小游戏。</li>
@@ -323,44 +327,49 @@ function App() {
           </div>
 
           {/* Right Column: List */}
-          <div className="lg:col-span-7 xl:col-span-8">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-3">
-                 {entries.length > 0 && (
-                   <div className="flex items-center">
-                     <input
-                       id="select-all"
-                       type="checkbox"
-                       checked={isAllSelected}
-                       onChange={handleSelectAll}
-                       className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 cursor-pointer"
-                     />
-                     <label htmlFor="select-all" className="ml-2 text-sm text-gray-700 cursor-pointer select-none">
-                        全选
-                     </label>
-                   </div>
-                 )}
-                 <h2 className="text-lg font-medium text-gray-900">记录列表</h2>
-                 <span className="text-sm text-gray-500 hidden sm:inline">数据保存在本地浏览器</span>
+          <div className="lg:col-span-7 xl:col-span-8 lg:h-full lg:overflow-y-auto lg:pr-2 custom-scrollbar flex flex-col">
+            <div className="flex-none mb-4 sticky top-0 bg-gray-100 z-10 pt-1">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                   {entries.length > 0 && (
+                     <div className="flex items-center">
+                       <input
+                         id="select-all"
+                         type="checkbox"
+                         checked={isAllSelected}
+                         onChange={handleSelectAll}
+                         className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 cursor-pointer"
+                       />
+                       <label htmlFor="select-all" className="ml-2 text-sm text-gray-700 cursor-pointer select-none">
+                          全选
+                       </label>
+                     </div>
+                   )}
+                   <h2 className="text-lg font-medium text-gray-900">记录列表</h2>
+                   <span className="text-sm text-gray-500 hidden sm:inline">数据保存在本地浏览器</span>
+                </div>
+                
+                {entries.length > 0 && (
+                  <button 
+                    onClick={handleClearAllRequest}
+                    className="text-xs text-red-500 hover:text-red-700 flex items-center px-2 py-1 hover:bg-red-50 rounded"
+                  >
+                    <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                    清空所有记录
+                  </button>
+                )}
               </div>
-              
-              {entries.length > 0 && (
-                <button 
-                  onClick={handleClearAllRequest}
-                  className="text-xs text-red-500 hover:text-red-700 flex items-center px-2 py-1 hover:bg-red-50 rounded"
-                >
-                  <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                  清空所有记录
-                </button>
-              )}
             </div>
-            <EntryList 
-              entries={entries} 
-              onDelete={handleDeleteRequest} 
-              onCopy={handleCopyEntry}
-              selectedIds={selectedIds}
-              onToggleSelection={handleToggleSelection}
-            />
+            
+            <div className="flex-grow pb-6">
+              <EntryList 
+                entries={entries} 
+                onDelete={handleDeleteRequest} 
+                onCopy={handleCopyEntry}
+                selectedIds={selectedIds}
+                onToggleSelection={handleToggleSelection}
+              />
+            </div>
           </div>
 
         </div>
