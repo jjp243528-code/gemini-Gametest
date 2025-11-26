@@ -15,6 +15,9 @@ function App() {
   const [customAttributes, setCustomAttributes] = useState<CustomAttributeMap>({});
   const [isAttributeManagerOpen, setIsAttributeManagerOpen] = useState(false);
 
+  // Selection State
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+
   // PWA Install Prompt State
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
 
@@ -90,9 +93,12 @@ function App() {
 
   const confirmDelete = () => {
     if (deleteTarget?.type === 'single' && deleteTarget.id) {
-      setEntries(prev => prev.filter(e => e.id !== deleteTarget.id));
+      const idToDelete = deleteTarget.id;
+      setEntries(prev => prev.filter(e => e.id !== idToDelete));
+      setSelectedIds(prev => prev.filter(id => id !== idToDelete));
     } else if (deleteTarget?.type === 'all') {
       setEntries([]);
+      setSelectedIds([]);
     }
     setDeleteTarget(null);
   };
@@ -105,8 +111,29 @@ function App() {
     setFormInitialData(entry);
   };
 
+  const handleToggleSelection = (id: string) => {
+    setSelectedIds(prev => 
+      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+    );
+  };
+
+  const handleSelectAll = () => {
+    if (selectedIds.length === entries.length) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(entries.map(e => e.id));
+    }
+  };
+
   const handleExport = () => {
-    if (entries.length === 0) {
+    // Determine which entries to export
+    // If user has selected items, export only those.
+    // If user has selected NOTHING, export ALL (default convenience).
+    const entriesToExport = selectedIds.length > 0 
+      ? entries.filter(e => selectedIds.includes(e.id))
+      : entries;
+
+    if (entriesToExport.length === 0) {
       alert('暂无数据可导出');
       return;
     }
@@ -134,7 +161,7 @@ function App() {
       // 2. Build the data array (Array of Arrays)
       const dataRows: any[][] = [];
 
-      entries.forEach(e => {
+      entriesToExport.forEach(e => {
         // If no ad groups, create a row with basic info
         if (!e.adGroups || e.adGroups.length === 0) {
           dataRows.push([
@@ -242,14 +269,20 @@ function App() {
       ];
 
       // 6. Write File
+      const filename = selectedIds.length > 0 
+        ? `游戏广告测评表_选中${selectedIds.length}条_${new Date().toISOString().slice(0, 10)}.xlsx`
+        : `游戏广告测评表_全部_${new Date().toISOString().slice(0, 10)}.xlsx`;
+
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "广告测评数据");
-      XLSX.writeFile(wb, `游戏广告测评表_${new Date().toISOString().slice(0, 10)}.xlsx`);
+      XLSX.writeFile(wb, filename);
     } catch (error) {
       console.error("Export failed", error);
       alert('导出失败，请检查数据完整性。');
     }
   };
+
+  const isAllSelected = entries.length > 0 && selectedIds.length === entries.length;
 
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col relative">
@@ -259,6 +292,7 @@ function App() {
         onInstall={handleInstallApp}
         canInstall={!!deferredPrompt}
         onOpenAttributeManager={() => setIsAttributeManagerOpen(true)}
+        selectedCount={selectedIds.length}
       />
       
       <main className="flex-grow container mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -291,7 +325,21 @@ function App() {
           {/* Right Column: List */}
           <div className="lg:col-span-7 xl:col-span-8">
             <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-3">
+                 {entries.length > 0 && (
+                   <div className="flex items-center">
+                     <input
+                       id="select-all"
+                       type="checkbox"
+                       checked={isAllSelected}
+                       onChange={handleSelectAll}
+                       className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 cursor-pointer"
+                     />
+                     <label htmlFor="select-all" className="ml-2 text-sm text-gray-700 cursor-pointer select-none">
+                        全选
+                     </label>
+                   </div>
+                 )}
                  <h2 className="text-lg font-medium text-gray-900">记录列表</h2>
                  <span className="text-sm text-gray-500 hidden sm:inline">数据保存在本地浏览器</span>
               </div>
@@ -310,6 +358,8 @@ function App() {
               entries={entries} 
               onDelete={handleDeleteRequest} 
               onCopy={handleCopyEntry}
+              selectedIds={selectedIds}
+              onToggleSelection={handleToggleSelection}
             />
           </div>
 
