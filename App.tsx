@@ -126,7 +126,7 @@ function App() {
   };
 
   const handleExport = () => {
-    // Determine which entries to export
+    // 1. Determine which entries to export
     // If user has selected items, export only those.
     // If user has selected NOTHING, export ALL (default convenience).
     const entriesToExport = selectedIds.length > 0 
@@ -139,7 +139,7 @@ function App() {
     }
 
     try {
-      // 1. Define the exact columns based on the user's template (EntryForm defaults)
+      // 2. Define headers matching the UI form fields
       const headers = [
         '游戏名称', 
         '游戏类型', 
@@ -159,11 +159,11 @@ function App() {
         '试玩反馈'
       ];
 
-      // 2. Build the data array (Array of Arrays)
+      // 3. Build data rows
       const dataRows: any[][] = [];
 
       entriesToExport.forEach(e => {
-        // If no ad groups, create a row with basic info
+        // Handle case with no ad groups
         if (!e.adGroups || e.adGroups.length === 0) {
           dataRows.push([
             e.gameName,
@@ -178,11 +178,11 @@ function App() {
 
         // Create a row for each ad group
         e.adGroups.forEach((g, index) => {
-          // Extract specific attributes by key (using strict key matching)
+          // Helper to safely get attribute value
           const getAttr = (key: string) => g.attributes.find(a => a.key === key)?.value || '';
           
           const row = [
-            index === 0 ? e.gameName : '', // Merge simulation: only show game info on first row
+            index === 0 ? e.gameName : '', // Only show game info on the first row of the group
             index === 0 ? e.genre : '',
             index === 0 ? (e.duration || '') : '',
             g.gameTime || '',
@@ -191,10 +191,10 @@ function App() {
             getAttr('出现次数'),
             getAttr('广告一'),
             getAttr('广告类型一'),
-            getAttr('时长'),      // Default key for Ad 1 Duration
+            getAttr('时长'),      // Maps to '广告一时长'
             getAttr('广告二'),
             getAttr('广告类型二'),
-            getAttr('时长二'),    // Default key for Ad 2 Duration
+            getAttr('时长二'),    // Maps to '广告二时长'
             getAttr('触发关卡'),
             getAttr('触发事件'),
             index === 0 ? e.notes : ''
@@ -204,78 +204,48 @@ function App() {
         });
       });
 
-      // 3. Create Worksheet
+      // 4. Create Sheet
       const wsData = [headers, ...dataRows];
       const ws = XLSX.utils.aoa_to_sheet(wsData);
 
-      // 4. Apply Styles
-      // Define styles
+      // 5. Apply Styles
       const headerStyle = {
         font: { name: 'SimSun', sz: 11, bold: true, color: { rgb: "FFFFFF" } }, 
         fill: { fgColor: { rgb: "4472C4" } }, // Blue header
         alignment: { horizontal: 'center', vertical: 'center' },
-        border: {
-          top: { style: 'thin' },
-          bottom: { style: 'thin' },
-          left: { style: 'thin' },
-          right: { style: 'thin' }
-        }
+        border: { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } }
       };
 
       const contentStyle = {
         font: { name: 'SimSun', sz: 10, bold: false },
         alignment: { vertical: 'center', wrapText: true },
-        border: {
-          top: { style: 'thin' },
-          bottom: { style: 'thin' },
-          left: { style: 'thin' },
-          right: { style: 'thin' }
-        }
+        border: { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } }
       };
 
-      // Apply to all cells
       if (ws['!ref']) {
         const range = XLSX.utils.decode_range(ws['!ref']);
         for (let R = range.s.r; R <= range.e.r; ++R) {
           for (let C = range.s.c; C <= range.e.c; ++C) {
             const cell_address = XLSX.utils.encode_cell({ r: R, c: C });
             if (!ws[cell_address]) continue;
-
-            if (R === 0) {
-              // Header Row
-              ws[cell_address].s = headerStyle;
-            } else {
-              // Content Rows
-              ws[cell_address].s = contentStyle;
-            }
+            ws[cell_address].s = R === 0 ? headerStyle : contentStyle;
           }
         }
       }
 
-      // 5. Set Column Widths
+      // 6. Set Column Widths
       ws['!cols'] = [
-        { wpx: 120 }, // 游戏名称
-        { wpx: 80 },  // 游戏类型
-        { wpx: 80 },  // 试玩时长
-        { wpx: 120 }, // 游戏时间/节点
-        { wpx: 100 }, // 广告位置
-        { wpx: 60 },  // 出现频率
-        { wpx: 60 },  // 出现次数
-        { wpx: 150 }, // 广告一
-        { wpx: 100 }, // 广告类型一
-        { wpx: 80 },  // 广告一时长
-        { wpx: 150 }, // 广告二
-        { wpx: 100 }, // 广告类型二
-        { wpx: 80 },  // 广告二时长
-        { wpx: 100 }, // 触发关卡
-        { wpx: 120 }, // 触发事件
-        { wpx: 200 }  // 试玩反馈
+        { wpx: 120 }, { wpx: 80 }, { wpx: 80 }, { wpx: 120 }, 
+        { wpx: 100 }, { wpx: 60 }, { wpx: 60 }, 
+        { wpx: 150 }, { wpx: 100 }, { wpx: 80 }, 
+        { wpx: 150 }, { wpx: 100 }, { wpx: 80 }, 
+        { wpx: 100 }, { wpx: 120 }, { wpx: 200 }
       ];
 
-      // 6. Write File
+      // 7. Write File
       const filename = selectedIds.length > 0 
-        ? `游戏广告测评表_选中${selectedIds.length}条_${new Date().toISOString().slice(0, 10)}.xlsx`
-        : `游戏广告测评表_全部_${new Date().toISOString().slice(0, 10)}.xlsx`;
+        ? `游戏广告测评_选中${selectedIds.length}条_${new Date().toISOString().slice(0, 10)}.xlsx`
+        : `游戏广告测评_全部_${new Date().toISOString().slice(0, 10)}.xlsx`;
 
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "广告测评数据");
@@ -299,10 +269,11 @@ function App() {
         selectedCount={selectedIds.length}
       />
       
+      {/* Main Container - Independent Scrolling Logic */}
       <main className="flex-grow container mx-auto px-4 sm:px-6 lg:px-8 py-4 lg:py-8 overflow-y-auto lg:overflow-hidden min-h-0">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 h-auto lg:h-full">
           
-          {/* Left Column: Form */}
+          {/* Left Column: Form (Scrolls independently on desktop) */}
           <div className="lg:col-span-5 xl:col-span-4 lg:h-full lg:overflow-y-auto lg:pr-2 custom-scrollbar">
              <div className="space-y-6 pb-6">
                 <EntryForm 
@@ -314,25 +285,23 @@ function App() {
                 />
                 
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <h4 className="text-sm font-semibold text-blue-800 mb-2">岗位职责提示</h4>
+                  <h4 className="text-sm font-semibold text-blue-800 mb-2">使用小贴士</h4>
                   <ul className="text-xs text-blue-700 space-y-1 list-disc pl-4">
-                    <li>下载并试玩指定的海外小游戏。</li>
-                    <li>使用计时器记录准确的试玩或广告时长。</li>
-                    <li>点击 "添加策略组" 来记录不同的广告形态。</li>
-                    <li>使用 "游戏时间" 标记广告触发的关卡或时间点。</li>
-                    <li>数据将自动保存在您的浏览器缓存中。</li>
+                    <li>推荐使用电脑端访问，获得最佳的左右分屏体验。</li>
+                    <li>点击 "添加策略组" 记录不同阶段的广告逻辑。</li>
+                    <li>所有数据均存储在本地浏览器缓存中。</li>
                   </ul>
                 </div>
              </div>
           </div>
 
-          {/* Right Column: List */}
+          {/* Right Column: List (Scrolls independently on desktop) */}
           <div className="lg:col-span-7 xl:col-span-8 lg:h-full lg:overflow-y-auto lg:pr-2 custom-scrollbar flex flex-col">
-            <div className="flex-none mb-4 sticky top-0 bg-gray-100 z-10 pt-1">
+            <div className="flex-none mb-4 sticky top-0 bg-gray-100 z-10 pt-1 pb-1">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                    {entries.length > 0 && (
-                     <div className="flex items-center">
+                     <div className="flex items-center select-none">
                        <input
                          id="select-all"
                          type="checkbox"
@@ -340,22 +309,22 @@ function App() {
                          onChange={handleSelectAll}
                          className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 cursor-pointer"
                        />
-                       <label htmlFor="select-all" className="ml-2 text-sm text-gray-700 cursor-pointer select-none">
+                       <label htmlFor="select-all" className="ml-2 text-sm font-medium text-gray-700 cursor-pointer">
                           全选
                        </label>
                      </div>
                    )}
                    <h2 className="text-lg font-medium text-gray-900">记录列表</h2>
-                   <span className="text-sm text-gray-500 hidden sm:inline">数据保存在本地浏览器</span>
+                   <span className="text-sm text-gray-500 hidden sm:inline">({entries.length} 条)</span>
                 </div>
                 
                 {entries.length > 0 && (
                   <button 
                     onClick={handleClearAllRequest}
-                    className="text-xs text-red-500 hover:text-red-700 flex items-center px-2 py-1 hover:bg-red-50 rounded"
+                    className="text-xs text-red-500 hover:text-red-700 flex items-center px-2 py-1 hover:bg-red-50 rounded transition-colors"
                   >
                     <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                    清空所有记录
+                    清空所有
                   </button>
                 )}
               </div>
@@ -375,7 +344,7 @@ function App() {
         </div>
       </main>
       
-      {/* Custom Attribute Manager Modal */}
+      {/* Modals */}
       <CustomAttributeManager
         isOpen={isAttributeManagerOpen}
         onClose={() => setIsAttributeManagerOpen(false)}
@@ -383,21 +352,20 @@ function App() {
         onUpdate={handleUpdateCustomAttributes}
       />
 
-      {/* Delete Confirmation Modal */}
       {deleteTarget && (
-        <div className="fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+        <div className="fixed inset-0 z-50 overflow-y-auto" role="dialog" aria-modal="true">
           <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-            <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" aria-hidden="true" onClick={cancelDelete}></div>
+            <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={cancelDelete}></div>
             <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
             <div className="inline-block align-bottom bg-white rounded-lg px-4 pt-5 pb-4 text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full sm:p-6">
               <div className="sm:flex sm:items-start">
                 <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-100 sm:mx-0 sm:h-10 sm:w-10">
-                  <svg className="h-6 w-6 text-red-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                  <svg className="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                   </svg>
                 </div>
                 <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
-                  <h3 className="text-lg leading-6 font-medium text-gray-900" id="modal-title">
+                  <h3 className="text-lg leading-6 font-medium text-gray-900">
                     {deleteTarget.type === 'all' ? '清空所有记录' : '删除记录'}
                   </h3>
                   <div className="mt-2">
@@ -413,14 +381,14 @@ function App() {
               <div className="mt-5 sm:mt-4 sm:flex sm:flex-row-reverse">
                 <button
                   type="button"
-                  className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:ml-3 sm:w-auto sm:text-sm"
+                  className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none sm:ml-3 sm:w-auto sm:text-sm"
                   onClick={confirmDelete}
                 >
                   确定删除
                 </button>
                 <button
                   type="button"
-                  className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:mt-0 sm:w-auto sm:text-sm"
+                  className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none sm:mt-0 sm:w-auto sm:text-sm"
                   onClick={cancelDelete}
                 >
                   取消
