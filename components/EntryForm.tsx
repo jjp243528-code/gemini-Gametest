@@ -7,6 +7,7 @@ interface EntryFormProps {
   onClearInitialData?: () => void; // Prop to clear the selection after loading
   customAttributes: CustomAttributeMap;
   onUpdateCustomAttributes: (newAttributes: CustomAttributeMap) => void;
+  enableAutoSave: boolean;
 }
 
 const AD_TYPE_OPTIONS = ["插屏广告", "激励视频", "视频+插屏广告", "可互动广告", "Banner"];
@@ -45,7 +46,7 @@ const generateId = () => {
 
 const DRAFT_STORAGE_KEY = 'game_ad_insight_draft';
 
-const EntryForm: React.FC<EntryFormProps> = ({ onAddEntry, initialData, onClearInitialData, customAttributes, onUpdateCustomAttributes }) => {
+const EntryForm: React.FC<EntryFormProps> = ({ onAddEntry, initialData, onClearInitialData, customAttributes, onUpdateCustomAttributes, enableAutoSave }) => {
   const [gameName, setGameName] = useState('');
   const [genre, setGenre] = useState('');
   const [notes, setNotes] = useState('');
@@ -197,6 +198,8 @@ const EntryForm: React.FC<EntryFormProps> = ({ onAddEntry, initialData, onClearI
 
   // 3. Auto-Save Logic (Debounced)
   useEffect(() => {
+    if (!enableAutoSave) return;
+
     const hasContent = gameName || genre || notes || duration || adGroups.length > 0;
     
     // Only save if there is content to save
@@ -217,7 +220,7 @@ const EntryForm: React.FC<EntryFormProps> = ({ onAddEntry, initialData, onClearI
 
       return () => clearTimeout(timerId);
     }
-  }, [gameName, genre, notes, duration, adGroups, timerSeconds]);
+  }, [gameName, genre, notes, duration, adGroups, timerSeconds, enableAutoSave]);
 
 
   // Drag and Drop Refs and State
@@ -428,10 +431,15 @@ const EntryForm: React.FC<EntryFormProps> = ({ onAddEntry, initialData, onClearI
             </svg>
             录入新数据
           </h2>
-          {lastSaved && (
+          {enableAutoSave && lastSaved && (
              <span className="hidden sm:inline-flex items-center text-xs text-green-700 bg-green-50 px-2.5 py-1 rounded-full border border-green-100 transition-opacity duration-500">
                 <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
                 已自动保存于 {lastSaved.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+             </span>
+          )}
+          {!enableAutoSave && (
+              <span className="hidden sm:inline-flex items-center text-xs text-gray-500 bg-gray-100 px-2.5 py-1 rounded-full border border-gray-200">
+                自动保存已关闭
              </span>
           )}
         </div>

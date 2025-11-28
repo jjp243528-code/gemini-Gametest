@@ -28,3 +28,8 @@ export interface GameEntry {
 
 // Type for storing user-defined attribute templates
 export type CustomAttributeMap = Record<string, string[]>;
+
+export interface AppSettings {
+  enableAutoSave: boolean;
+  exportFileName: string;
+}

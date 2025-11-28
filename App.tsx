@@ -5,7 +5,8 @@ import Header from './components/Header';
 import EntryForm from './components/EntryForm';
 import EntryList from './components/EntryList';
 import CustomAttributeManager from './components/CustomAttributeManager';
-import { GameEntry, CustomAttributeMap } from './types';
+import SettingsModal from './components/SettingsModal';
+import { GameEntry, CustomAttributeMap, AppSettings } from './types';
 
 function App() {
   const [entries, setEntries] = useState<GameEntry[]>([]);
@@ -14,6 +15,13 @@ function App() {
   // Custom Attributes State
   const [customAttributes, setCustomAttributes] = useState<CustomAttributeMap>({});
   const [isAttributeManagerOpen, setIsAttributeManagerOpen] = useState(false);
+  
+  // Settings State
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [appSettings, setAppSettings] = useState<AppSettings>({
+    enableAutoSave: true,
+    exportFileName: '游戏广告测评'
+  });
 
   // Selection State
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -65,6 +73,16 @@ function App() {
         console.error("Failed to parse custom attributes", e);
       }
     }
+    // Load app settings
+    const savedSettings = localStorage.getItem('appSettings');
+    if (savedSettings) {
+      try {
+        const parsed = JSON.parse(savedSettings);
+        setAppSettings(prev => ({ ...prev, ...parsed }));
+      } catch (e) {
+        console.error("Failed to parse settings", e);
+      }
+    }
   }, []);
 
   // Save to local storage
@@ -77,6 +95,10 @@ function App() {
     localStorage.setItem('adCustomOptions', JSON.stringify(newAttributes));
   };
 
+  const handleUpdateSettings = (newSettings: AppSettings) => {
+    setAppSettings(newSettings);
+    localStorage.setItem('appSettings', JSON.stringify(newSettings));
+  };
 
   const handleAddEntry = (entry: GameEntry) => {
     setEntries(prev => [entry, ...prev]);
@@ -123,6 +145,55 @@ function App() {
     } else {
       setSelectedIds(entries.map(e => e.id));
     }
+  };
+
+  const handleBackupData = () => {
+    try {
+      const backup = {
+        entries,
+        customAttributes,
+        appSettings,
+        version: '1.0',
+        timestamp: Date.now()
+      };
+      const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `GameAdInsight_Backup_${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      alert("备份失败");
+    }
+  };
+
+  const handleRestoreData = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        if (e.target?.result) {
+          const data = JSON.parse(e.target.result as string);
+          if (data.entries && Array.isArray(data.entries)) {
+            if (window.confirm(`确认恢复数据？这将覆盖当前所有记录。\n文件中包含 ${data.entries.length} 条记录。`)) {
+              setEntries(data.entries);
+              if (data.customAttributes) handleUpdateCustomAttributes(data.customAttributes);
+              if (data.appSettings) handleUpdateSettings(data.appSettings);
+              alert("数据恢复成功！");
+              setIsSettingsOpen(false);
+            }
+          } else {
+            alert("无效的备份文件格式");
+          }
+        }
+      } catch (err) {
+        console.error(err);
+        alert("文件解析失败");
+      }
+    };
+    reader.readAsText(file);
   };
 
   const handleExport = () => {
@@ -277,9 +348,11 @@ function App() {
       ws['!cols'] = colWidths;
 
       // 8. Write File
+      // Use configured prefix or default
+      const prefix = appSettings.exportFileName.trim() || '游戏广告测评';
       const filename = selectedIds.length > 0 
-        ? `游戏广告测评_选中${selectedIds.length}条_${new Date().toISOString().slice(0, 10)}.xlsx`
-        : `游戏广告测评_全部_${new Date().toISOString().slice(0, 10)}.xlsx`;
+        ? `${prefix}_选中${selectedIds.length}条_${new Date().toISOString().slice(0, 10)}.xlsx`
+        : `${prefix}_全部_${new Date().toISOString().slice(0, 10)}.xlsx`;
 
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "广告测评数据");
@@ -300,6 +373,7 @@ function App() {
         onInstall={handleInstallApp}
         canInstall={!!deferredPrompt}
         onOpenAttributeManager={() => setIsAttributeManagerOpen(true)}
+        onOpenSettings={() => setIsSettingsOpen(true)}
         selectedCount={selectedIds.length}
       />
       
@@ -316,6 +390,7 @@ function App() {
                   onClearInitialData={() => setFormInitialData(null)}
                   customAttributes={customAttributes}
                   onUpdateCustomAttributes={handleUpdateCustomAttributes}
+                  enableAutoSave={appSettings.enableAutoSave}
                 />
                 
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
@@ -384,6 +459,15 @@ function App() {
         onClose={() => setIsAttributeManagerOpen(false)}
         attributes={customAttributes}
         onUpdate={handleUpdateCustomAttributes}
+      />
+
+      <SettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        settings={appSettings}
+        onUpdateSettings={handleUpdateSettings}
+        onBackupData={handleBackupData}
+        onRestoreData={handleRestoreData}
       />
 
       {deleteTarget && (
