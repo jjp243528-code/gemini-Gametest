@@ -127,8 +127,6 @@ function App() {
 
   const handleExport = () => {
     // 1. Determine which entries to export
-    // If user has selected items, export only those.
-    // If user has selected NOTHING, export ALL (default convenience).
     const entriesToExport = selectedIds.length > 0 
       ? entries.filter(e => selectedIds.includes(e.id))
       : entries;
@@ -139,64 +137,98 @@ function App() {
     }
 
     try {
-      // 2. Define headers matching the UI form fields
-      const headers = [
-        '游戏名称', 
-        '游戏类型', 
-        '试玩时长', 
-        '游戏时间/节点', 
+      // 2. Discover ALL dynamic attribute keys from the data
+      const allAttributeKeys = new Set<string>();
+      
+      // We define a preferred order for common fields to keep the Excel readable
+      const preferredOrder = [
         '广告位置', 
         '出现频率', 
         '出现次数', 
         '广告一', 
         '广告类型一', 
-        '广告一时长', 
+        '时长', 
         '广告二', 
         '广告类型二', 
-        '广告二时长', 
+        '时长二', 
         '触发关卡', 
-        '触发事件', 
+        '触发事件'
+      ];
+
+      // Scan data for all used keys
+      entriesToExport.forEach(entry => {
+        entry.adGroups.forEach(group => {
+          group.attributes.forEach(attr => {
+            if (attr.key && attr.key.trim() !== '') {
+              allAttributeKeys.add(attr.key.trim());
+            }
+          });
+        });
+      });
+
+      // Sort keys based on preferred order + alphabetical for new ones
+      const sortedDynamicKeys = Array.from(allAttributeKeys).sort((a, b) => {
+        const idxA = preferredOrder.indexOf(a);
+        const idxB = preferredOrder.indexOf(b);
+        
+        // If both are in preferred list, sort by index
+        if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+        // If only A is in preferred list, A comes first
+        if (idxA !== -1) return -1;
+        // If only B is in preferred list, B comes first
+        if (idxB !== -1) return 1;
+        // If neither, sort alphabetically
+        return a.localeCompare(b);
+      });
+
+      // Map internal keys to display headers (optional renaming)
+      const keyToHeaderMap: Record<string, string> = {
+        '时长': '广告一时长',
+        '时长二': '广告二时长'
+      };
+
+      const dynamicHeaderLabels = sortedDynamicKeys.map(k => keyToHeaderMap[k] || k);
+
+      // 3. Construct Final Headers
+      const headers = [
+        '游戏名称', 
+        '游戏类型', 
+        '试玩时长', 
+        '游戏时间/节点', 
+        ...dynamicHeaderLabels, 
         '试玩反馈'
       ];
 
-      // 3. Build data rows
+      // 4. Build Data Rows dynamically
       const dataRows: any[][] = [];
 
       entriesToExport.forEach(e => {
-        // Handle case with no ad groups
+        // If no ad groups, push a single row with basic info
         if (!e.adGroups || e.adGroups.length === 0) {
-          dataRows.push([
+          const row = [
             e.gameName,
             e.genre,
             e.duration || '',
-            '', // No game time
-            '', '', '', '', '', '', '', '', '', '', '', // Empty ad fields
+            '', // No Game Time
+            ...sortedDynamicKeys.map(() => ''), // Empty dynamic cols
             e.notes
-          ]);
+          ];
+          dataRows.push(row);
           return;
         }
 
         // Create a row for each ad group
         e.adGroups.forEach((g, index) => {
-          // Helper to safely get attribute value
-          const getAttr = (key: string) => g.attributes.find(a => a.key === key)?.value || '';
-          
           const row = [
-            index === 0 ? e.gameName : '', // Only show game info on the first row of the group
+            index === 0 ? e.gameName : '', 
             index === 0 ? e.genre : '',
             index === 0 ? (e.duration || '') : '',
             g.gameTime || '',
-            getAttr('广告位置'),
-            getAttr('出现频率'),
-            getAttr('出现次数'),
-            getAttr('广告一'),
-            getAttr('广告类型一'),
-            getAttr('时长'),      // Maps to '广告一时长'
-            getAttr('广告二'),
-            getAttr('广告类型二'),
-            getAttr('时长二'),    // Maps to '广告二时长'
-            getAttr('触发关卡'),
-            getAttr('触发事件'),
+            // Map values for each dynamic key
+            ...sortedDynamicKeys.map(key => {
+               const attr = g.attributes.find(a => a.key === key);
+               return attr ? attr.value : '';
+            }),
             index === 0 ? e.notes : ''
           ];
           
@@ -204,14 +236,14 @@ function App() {
         });
       });
 
-      // 4. Create Sheet
+      // 5. Create Sheet
       const wsData = [headers, ...dataRows];
       const ws = XLSX.utils.aoa_to_sheet(wsData);
 
-      // 5. Apply Styles
+      // 6. Apply Styles
       const headerStyle = {
         font: { name: 'SimSun', sz: 11, bold: true, color: { rgb: "FFFFFF" } }, 
-        fill: { fgColor: { rgb: "4472C4" } }, // Blue header
+        fill: { fgColor: { rgb: "4472C4" } }, 
         alignment: { horizontal: 'center', vertical: 'center' },
         border: { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } }
       };
@@ -233,16 +265,18 @@ function App() {
         }
       }
 
-      // 6. Set Column Widths
-      ws['!cols'] = [
-        { wpx: 120 }, { wpx: 80 }, { wpx: 80 }, { wpx: 120 }, 
-        { wpx: 100 }, { wpx: 60 }, { wpx: 60 }, 
-        { wpx: 150 }, { wpx: 100 }, { wpx: 80 }, 
-        { wpx: 150 }, { wpx: 100 }, { wpx: 80 }, 
-        { wpx: 100 }, { wpx: 120 }, { wpx: 200 }
+      // 7. Dynamic Column Widths
+      const colWidths = [
+        { wpx: 120 }, // Game Name
+        { wpx: 80 },  // Genre
+        { wpx: 80 },  // Duration
+        { wpx: 120 }, // Game Time
+        ...sortedDynamicKeys.map(() => ({ wpx: 110 })), // Dynamic cols approx width
+        { wpx: 200 }  // Notes
       ];
+      ws['!cols'] = colWidths;
 
-      // 7. Write File
+      // 8. Write File
       const filename = selectedIds.length > 0 
         ? `游戏广告测评_选中${selectedIds.length}条_${new Date().toISOString().slice(0, 10)}.xlsx`
         : `游戏广告测评_全部_${new Date().toISOString().slice(0, 10)}.xlsx`;

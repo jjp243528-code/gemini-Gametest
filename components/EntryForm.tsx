@@ -43,6 +43,8 @@ const generateId = () => {
   return Date.now().toString(36) + Math.random().toString(36).substring(2);
 };
 
+const DRAFT_STORAGE_KEY = 'game_ad_insight_draft';
+
 const EntryForm: React.FC<EntryFormProps> = ({ onAddEntry, initialData, onClearInitialData, customAttributes, onUpdateCustomAttributes }) => {
   const [gameName, setGameName] = useState('');
   const [genre, setGenre] = useState('');
@@ -53,6 +55,9 @@ const EntryForm: React.FC<EntryFormProps> = ({ onAddEntry, initialData, onClearI
   const [timerSeconds, setTimerSeconds] = useState(0);
   const [isTimerRunning, setIsTimerRunning] = useState(false);
   const timerRef = useRef<any>(null);
+
+  // --- Auto Save State ---
+  const [lastSaved, setLastSaved] = useState<Date | null>(null);
 
   // Timer Logic
   useEffect(() => {
@@ -141,15 +146,9 @@ const EntryForm: React.FC<EntryFormProps> = ({ onAddEntry, initialData, onClearI
     onUpdateCustomAttributes(updated);
   };
   
-  const [adGroups, setAdGroups] = useState<AdGroup[]>([
-    {
-      id: generateId(),
-      name: '默认广告模块',
-      gameTime: '',
-      attributes: DEFAULT_ATTRIBUTES.map(attr => ({ ...attr, id: generateId() }))
-    }
-  ]);
+  const [adGroups, setAdGroups] = useState<AdGroup[]>([]);
 
+  // 1. Initial Data Loading (from Props/Copy)
   useEffect(() => {
     if (initialData) {
       setGameName(initialData.gameName);
@@ -168,6 +167,58 @@ const EntryForm: React.FC<EntryFormProps> = ({ onAddEntry, initialData, onClearI
       if (onClearInitialData) onClearInitialData();
     }
   }, [initialData, onClearInitialData]);
+
+  // 2. Draft Restoration (from LocalStorage on Mount)
+  useEffect(() => {
+    // Only try to restore draft if we are NOT loading initialData from a copy action
+    if (!initialData) {
+      try {
+        const savedDraft = localStorage.getItem(DRAFT_STORAGE_KEY);
+        if (savedDraft) {
+          const draft = JSON.parse(savedDraft);
+          // Simple validation to ensure it's not an empty shell
+          if (draft.gameName || (draft.adGroups && draft.adGroups.length > 0) || draft.notes || draft.duration) {
+            setGameName(draft.gameName || '');
+            setGenre(draft.genre || '');
+            setNotes(draft.notes || '');
+            setDuration(draft.duration || '');
+            setAdGroups(draft.adGroups || []);
+            setTimerSeconds(draft.timerSeconds || 0);
+            if (draft.timestamp) {
+               setLastSaved(new Date(draft.timestamp));
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Failed to restore draft:", error);
+      }
+    }
+  }, []); // Run once on mount
+
+  // 3. Auto-Save Logic (Debounced)
+  useEffect(() => {
+    const hasContent = gameName || genre || notes || duration || adGroups.length > 0;
+    
+    // Only save if there is content to save
+    if (hasContent) {
+      const timerId = setTimeout(() => {
+        const draft = {
+          gameName,
+          genre,
+          notes,
+          duration,
+          adGroups,
+          timerSeconds,
+          timestamp: Date.now()
+        };
+        localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(draft));
+        setLastSaved(new Date());
+      }, 1500); // 1.5s debounce to avoid thrashing storage
+
+      return () => clearTimeout(timerId);
+    }
+  }, [gameName, genre, notes, duration, adGroups, timerSeconds]);
+
 
   // Drag and Drop Refs and State
   const dragItem = useRef<number | null>(null);
@@ -333,19 +384,19 @@ const EntryForm: React.FC<EntryFormProps> = ({ onAddEntry, initialData, onClearI
     updateAttribute(groupId, attrId, 'value', `${newNum}次`);
   };
 
+  const clearDraft = () => {
+    localStorage.removeItem(DRAFT_STORAGE_KEY);
+    setLastSaved(null);
+  };
+
   const resetForm = () => {
     setGameName('');
     setGenre('');
     setNotes('');
     setDuration('');
     handleTimerReset(); 
-    
-    setAdGroups([{
-      id: generateId(),
-      name: '默认广告模块',
-      gameTime: '',
-      attributes: DEFAULT_ATTRIBUTES.map(attr => ({ ...attr, id: generateId() }))
-    }]);
+    setAdGroups([]);
+    clearDraft();
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -364,18 +415,27 @@ const EntryForm: React.FC<EntryFormProps> = ({ onAddEntry, initialData, onClearI
     };
 
     onAddEntry(newEntry);
-    resetForm();
+    resetForm(); // This also clears draft
   };
 
   return (
     <div className="bg-white shadow rounded-lg overflow-hidden border border-gray-200">
       <div className="bg-gray-50 px-6 py-4 border-b border-gray-200 flex justify-between items-center">
-        <h2 className="text-lg font-medium text-gray-900 flex items-center">
-          <svg className="w-5 h-5 mr-2 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-          </svg>
-          录入新数据
-        </h2>
+        <div className="flex items-center gap-4">
+          <h2 className="text-lg font-medium text-gray-900 flex items-center">
+            <svg className="w-5 h-5 mr-2 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+            </svg>
+            录入新数据
+          </h2>
+          {lastSaved && (
+             <span className="hidden sm:inline-flex items-center text-xs text-green-700 bg-green-50 px-2.5 py-1 rounded-full border border-green-100 transition-opacity duration-500">
+                <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                已自动保存于 {lastSaved.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+             </span>
+          )}
+        </div>
+        
         <button 
           type="button" 
           onClick={resetForm}
@@ -532,16 +592,14 @@ const EntryForm: React.FC<EntryFormProps> = ({ onAddEntry, initialData, onClearI
                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" /></svg>
                   </button>
 
-                  {adGroups.length > 0 && (
-                     <button
-                      type="button"
-                      onClick={() => removeGroup(group.id)}
-                      className="p-2 text-gray-500 hover:text-red-600 hover:bg-white rounded-md transition-all shadow-sm"
-                      title="删除该模块"
-                    >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    onClick={() => removeGroup(group.id)}
+                    className="p-2 text-gray-500 hover:text-red-600 hover:bg-white rounded-md transition-all shadow-sm"
+                    title="删除该模块"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                  </button>
                 </div>
               </div>
 
